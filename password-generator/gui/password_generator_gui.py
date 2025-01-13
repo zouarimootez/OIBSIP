@@ -1,11 +1,10 @@
-import tkinter as tk
-from tkinter import ttk, messagebox, filedialog, simpledialog
-import random
 import string
-import pyperclip
-import json
-import os
-import sqlite3
+import tkinter as tk
+from tkinter import ttk, messagebox, simpledialog
+from database.db_manager import DBManager
+from utils.password_utils import generate_unique_password, calculate_password_strength
+from utils.preferences_manager import PreferencesManager
+from gui.theme_manager import apply_theme
 
 class PasswordGeneratorGUI:
     def __init__(self, master):
@@ -15,28 +14,17 @@ class PasswordGeneratorGUI:
         self.master.resizable(False, False)
 
         # Initialize database
-        self.db_connection = sqlite3.connect("password_database.db")
-        self._initialize_database()
+        self.db_manager = DBManager("database\password_database.db")
+        self.db_manager.initialize_database()
 
         # Load user preferences
-        self.preferences = self.load_preferences()
+        self.preferences_manager = PreferencesManager()
+        self.preferences = self.preferences_manager.load_preferences()
 
         # Apply saved theme
-        self.apply_theme(self.preferences.get("theme", "light"))
+        apply_theme(self.master, self.preferences.get("theme", "light"))
 
         self._setup_ui()
-
-    def _initialize_database(self):
-        """Initialize the database and create tables if they don't exist."""
-        cursor = self.db_connection.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS passwords (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                password TEXT UNIQUE,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-        self.db_connection.commit()
 
     def _setup_ui(self):
         """Setup the user interface."""
@@ -129,26 +117,12 @@ class PasswordGeneratorGUI:
                 raise ValueError("Please select at least one character set.")
 
             # Generate a unique password
-            password = self.generate_unique_password(all_characters, length)
+            password = generate_unique_password(all_characters, length, self.db_manager)
             self.show_password(password)
             self.update_strength_indicator(password)
 
         except ValueError as e:
             messagebox.showerror("Error", str(e))
-
-    def generate_unique_password(self, characters, length):
-        """Generate a password and ensure it is unique in the database."""
-        while True:
-            password = ''.join(random.choice(characters) for _ in range(length))
-            if not self.password_exists(password):
-                break
-        return password
-
-    def password_exists(self, password):
-        """Check if the password already exists in the database."""
-        cursor = self.db_connection.cursor()
-        cursor.execute("SELECT id FROM passwords WHERE password = ?", (password,))
-        return cursor.fetchone() is not None
 
     def show_password(self, password):
         """Display the generated password."""
@@ -171,53 +145,19 @@ class PasswordGeneratorGUI:
             return
 
         try:
-            cursor = self.db_connection.cursor()
-            cursor.execute("INSERT INTO passwords (password) VALUES (?)", (password,))
-            self.db_connection.commit()
+            self.db_manager.save_password(password)
             messagebox.showinfo("Saved", "Password saved to database.")
         except sqlite3.IntegrityError:
             messagebox.showerror("Error", "Password already exists in the database.")
 
     def update_strength_indicator(self, password):
         """Update the password strength indicator."""
-        strength = self.calculate_password_strength(password)
+        strength = calculate_password_strength(password)
         self.label_strength.config(text=f"Strength: {strength}")
-
-    def calculate_password_strength(self, password):
-        """Calculate the strength of the password."""
-        length = len(password)
-        has_upper = any(c in string.ascii_uppercase for c in password)
-        has_lower = any(c in string.ascii_lowercase for c in password)
-        has_digit = any(c in string.digits for c in password)
-        has_symbol = any(c in string.punctuation for c in password)
-
-        score = 0
-        if length >= 12:
-            score += 2
-        elif length >= 8:
-            score += 1
-
-        if has_upper:
-            score += 1
-        if has_lower:
-            score += 1
-        if has_digit:
-            score += 1
-        if has_symbol:
-            score += 1
-
-        if score >= 5:
-            return "Strong"
-        elif score >= 3:
-            return "Medium"
-        else:
-            return "Weak"
 
     def view_password_history(self):
         """Display a history of generated passwords from the database."""
-        cursor = self.db_connection.cursor()
-        cursor.execute("SELECT password, timestamp FROM passwords ORDER BY timestamp DESC")
-        passwords = cursor.fetchall()
+        passwords = self.db_manager.get_password_history()
 
         if not passwords:
             messagebox.showinfo("No History", "No passwords have been saved yet.")
@@ -243,19 +183,10 @@ class PasswordGeneratorGUI:
         theme = simpledialog.askstring("Change Theme", "Enter theme (light/dark):")
         if theme in ["light", "dark"]:
             self.preferences["theme"] = theme
-            self.apply_theme(theme)
+            apply_theme(self.master, theme)
             messagebox.showinfo("Success", f"Theme changed to {theme}.")
         else:
             messagebox.showerror("Error", "Invalid theme. Choose 'light' or 'dark'.")
-
-    def apply_theme(self, theme):
-        """Apply the selected theme."""
-        if theme == "light":
-            self.master.configure(bg="white")
-            ttk.Style().configure(".", background="white", foreground="black")
-        elif theme == "dark":
-            self.master.configure(bg="#2d2d2d")
-            ttk.Style().configure(".", background="#2d2d2d", foreground="white")
 
     def change_font(self):
         """Change the application font."""
@@ -267,18 +198,5 @@ class PasswordGeneratorGUI:
 
     def save_preferences(self):
         """Save user preferences to a file."""
-        with open("preferences.json", "w") as file:
-            json.dump(self.preferences, file)
+        self.preferences_manager.save_preferences(self.preferences)
         messagebox.showinfo("Saved", "Preferences saved successfully.")
-
-    def load_preferences(self):
-        """Load user preferences from a file."""
-        if os.path.exists("preferences.json"):
-            with open("preferences.json", "r") as file:
-                return json.load(file)
-        return {}
-
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = PasswordGeneratorGUI(root)
-    root.mainloop()
