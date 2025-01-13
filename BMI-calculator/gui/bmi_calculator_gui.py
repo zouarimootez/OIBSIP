@@ -1,47 +1,10 @@
 import tkinter as tk
 from tkinter import messagebox, ttk, filedialog
-import sqlite3
+from database.database_manager import DatabaseManager
+from utils.bmi_utils import classify_bmi, get_bmi_recommendation
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import csv
-
-class DatabaseManager:
-    """Handles all database operations."""
-    def __init__(self, db_name='bmi_database.db'):
-        self.db_name = db_name
-        self._initialize_db()
-
-    def _initialize_db(self):
-        """Initialize the database and create tables if they don't exist."""
-        with sqlite3.connect(self.db_name) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS user_data (
-                    id INTEGER PRIMARY KEY,
-                    weight REAL,
-                    height REAL,
-                    bmi REAL,
-                    category TEXT
-                )
-            ''')
-            conn.commit()
-
-    def save_bmi_data(self, weight, height, bmi, category):
-        """Save BMI data to the database."""
-        with sqlite3.connect(self.db_name) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                INSERT INTO user_data (weight, height, bmi, category)
-                VALUES (?, ?, ?, ?)
-            ''', (weight, height, bmi, category))
-            conn.commit()
-
-    def fetch_bmi_history(self):
-        """Fetch all BMI data from the database."""
-        with sqlite3.connect(self.db_name) as conn:
-            cursor = conn.cursor()
-            cursor.execute('SELECT weight, height, bmi, category FROM user_data')
-            return cursor.fetchall()
 
 class BMI_Calculator_GUI:
     def __init__(self, master):
@@ -102,8 +65,8 @@ class BMI_Calculator_GUI:
                 return
 
             bmi = weight / (height ** 2)
-            category = self._classify_bmi(bmi)
-            recommendation = self._get_bmi_recommendation(category)
+            category = classify_bmi(bmi)
+            recommendation = get_bmi_recommendation(category)
 
             self.db_manager.save_bmi_data(weight, height, bmi, category)
 
@@ -112,27 +75,6 @@ class BMI_Calculator_GUI:
 
         except ValueError:
             messagebox.showerror("Error", "Invalid input. Please enter valid numeric values.")
-
-    def _classify_bmi(self, bmi):
-        """Classify BMI into categories."""
-        if bmi < 18.5:
-            return "Underweight"
-        elif 18.5 <= bmi < 24.9:
-            return "Normal weight"
-        elif 25 <= bmi < 29.9:
-            return "Overweight"
-        else:
-            return "Obese"
-
-    def _get_bmi_recommendation(self, category):
-        """Provide health recommendations based on BMI category."""
-        recommendations = {
-            "Underweight": "Consider gaining weight through a balanced diet and exercise.",
-            "Normal weight": "Maintain your current weight with a healthy lifestyle.",
-            "Overweight": "Consider losing weight through diet and exercise.",
-            "Obese": "Seek medical advice for weight management."
-        }
-        return recommendations.get(category, "No recommendation available.")
 
     def view_history(self):
         """Display BMI history in a new window."""
@@ -200,8 +142,3 @@ class BMI_Calculator_GUI:
                 writer.writerow(["Weight (kg)", "Height (m)", "BMI", "Category"])
                 writer.writerows(data)
             messagebox.showinfo("Export Successful", "BMI data has been exported successfully.")
-
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = BMI_Calculator_GUI(root)
-    root.mainloop()
