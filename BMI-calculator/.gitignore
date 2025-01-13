@@ -86,4 +86,6 @@ htmlcov/
 *.orig
 *.out
 *.retry
+*.pyc
 */*.pyc
+
