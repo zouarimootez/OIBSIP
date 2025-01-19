@@ -1,6 +1,8 @@
 import string
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
+
+import pyperclip
 from database.db_manager import DBManager
 from utils.password_utils import generate_unique_password, calculate_password_strength
 from utils.preferences_manager import PreferencesManager

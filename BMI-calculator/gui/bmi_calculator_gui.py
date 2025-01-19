@@ -64,13 +64,14 @@ class BMI_Calculator_GUI:
                 messagebox.showerror("Error", "Weight and height must be positive values.")
                 return
 
-            bmi = weight / (height ** 2)
+            bmi = round(weight / (height ** 2),2)
             category = classify_bmi(bmi)
+        
             recommendation = get_bmi_recommendation(category)
 
             self.db_manager.save_bmi_data(weight, height, bmi, category)
 
-            result_text = f"Your BMI is: {bmi:.2f}\nCategory: {category}\nRecommendation: {recommendation}"
+            result_text = f"Your BMI is: {bmi}\nCategory: {category}\nRecommendation: {recommendation}"
             messagebox.showinfo("BMI Result", result_text)
 
         except ValueError:
