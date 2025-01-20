@@ -1,5 +1,5 @@
 import requests
-
+from speech import text_to_speech
 def get_weather(city):
     api_key = "your api key"
     base_url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric"
@@ -10,6 +10,6 @@ def get_weather(city):
         weather = data["weather"][0]
         temperature = main["temp"]
         description = weather["description"]
-        speak(f"The temperature in {city} is {temperature} degrees Celsius with {description}.")
+        text_to_speech.speak(f"The temperature in {city} is {temperature} degrees Celsius with {description}.")
     else:
-        speak("City not found. Please try again.")
+        text_to_speech.speak("City not found. Please try again.")

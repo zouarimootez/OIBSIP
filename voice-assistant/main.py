@@ -1,3 +1,6 @@
+import webbrowser
+
+import wikipedia
 from speech.text_to_speech import speak
 from speech.speech_recognition import listen
 from commands.help import help_menu
